@@ -1,0 +1,50 @@
+
+name: Android APK Build
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'xy_overlay_android_phone_cloudbuild_v2.zip'
+      - '.github/workflows/build-apk.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Extract Android project
+        run: |
+          mkdir -p extracted
+          unzip -q xy_overlay_android_phone_cloudbuild_v2.zip -d extracted
+          find extracted -maxdepth 4 -type f | head -200
+
+      - name: Build debug APK
+        run: |
+          GRADLEW="$(find extracted -type f -name gradlew | head -n 1)"
+          if [ -z "$GRADLEW" ]; then
+            echo "ERROR: gradlew not found in ZIP."
+            exit 1
+          fi
+          cd "$(dirname "$GRADLEW")"
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-apk
+          path: extracted/**/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7
