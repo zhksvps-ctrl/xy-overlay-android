@@ -1,5 +1,18 @@
 
-name: Android APK Build
+      - name: Inspect Android project ZIP
+        run: |
+          mkdir -p extracted
+          unzip -q xy_overlay_android_phone_cloudbuild_v2.zip -d extracted
+          echo "===== ZIP FILE LIST ====="
+          find extracted -maxdepth 6 -type f | head -300
+          echo "===== GRADLE FILES ====="
+          find extracted -type f \( \
+            -name gradlew -o \
+            -name settings.gradle -o \
+            -name settings.gradle.kts -o \
+            -name build.gradle -o \
+            -name build.gradle.kts \
+          \)name: Android APK Build
 
 on:
   workflow_dispatch:
