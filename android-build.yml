@@ -1,0 +1,79 @@
+name: Android APK Build
+
+on:
+  push:
+    paths:
+      - '**.zip'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Locate and extract Android source ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive=""
+          while IFS= read -r candidate; do
+            if unzip -Z1 "$candidate" | grep -Eq '(^|/)settings\.gradle(\.kts)?$'; then
+              archive="$candidate"
+              break
+            fi
+          done < <(find . -maxdepth 3 -type f -iname '*.zip' -print)
+          if [ -z "$archive" ]; then
+            echo "ERROR: No uploaded ZIP contains settings.gradle or settings.gradle.kts. Upload xy-overlay-android-source.zip to the repository root." >&2
+            exit 1
+          fi
+          echo "Using source archive: $archive"
+          mkdir -p "$GITHUB_WORKSPACE/buildsrc"
+          unzip -q "$archive" -d "$GITHUB_WORKSPACE/buildsrc"
+          settings_file="$(find "$GITHUB_WORKSPACE/buildsrc" -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)"
+          if [ -z "$settings_file" ]; then
+            echo "ERROR: Could not find settings.gradle after extracting the ZIP." >&2
+            exit 1
+          fi
+          project_dir="$(dirname "$settings_file")"
+          echo "PROJECT_DIR=$project_dir" >> "$GITHUB_ENV"
+          echo "Android project root: $project_dir"
+
+      - name: Install Gradle 8.9
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 https://services.gradle.org/distributions/gradle-8.9-bin.zip -o "$RUNNER_TEMP/gradle.zip"
+          unzip -q "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/gradle-8.9/bin" >> "$GITHUB_PATH"
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - name: Build debug APK
+        run: gradle -p "$PROJECT_DIR" --no-daemon assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: xy-overlay-debug-apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
