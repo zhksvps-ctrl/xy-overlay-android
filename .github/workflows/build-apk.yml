@@ -1,5 +1,4 @@
-      - name: Inspect Android project ZIP
-        run: |
+      - name: Inspect Android project ZIP run: |
           mkdir -p extracted
           unzip -q xy_overlay_android_phone_cloudbuild_v2.zip -d extracted
           echo "===== ZIP FILE LIST ====="
