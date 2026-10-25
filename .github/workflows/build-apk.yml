@@ -1,4 +1,4 @@
-name: Debug File Tree
+name: Build Android APK Final
 
 on:
   push:
@@ -6,16 +6,50 @@ on:
   workflow_dispatch:
 
 jobs:
-  debug:
+  build:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Show All Files in Repository
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install System Gradle (For Wrapper Generation)
         run: |
-          echo "=== Root Directory File List ==="
-          ls -la
-          echo "=== Subdirectories Search ==="
-          find . -maxdepth 3 -not -path '*/.*'
+          sudo apt-get update
+          sudo apt-get install -y gradle
+
+      - name: Locate Project and Build APK
+        run: |
+          echo "=== Searching for settings.gradle ==="
+          SETTING_FILE=$(find . -name "settings.gradle" -o -name "settings.gradle.kts" -print -quit)
+          
+          if [ -z "$SETTING_FILE" ]; then
+            echo "::error::안드로이드 프로젝트 설정 파일(settings.gradle)을 찾을 수 없습니다."
+            exit 1
+          fi
+          
+          PROJECT_DIR=$(dirname "$SETTING_FILE")
+          echo "Found project root at: $PROJECT_DIR"
+          
+          cd "$PROJECT_DIR"
+          
+          if [ ! -f "./gradlew" ]; then
+            echo "=== gradlew not found. Generating wrapper via system gradle ==="
+            gradle wrapper
+          fi
+          
+          chmod +x gradlew
+          echo "=== Starting Gradle Build (assembleDebug) ==="
+          ./gradlew assembleDebug
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-apk
+          path: '**/build/outputs/apk/debug/*.apk'
