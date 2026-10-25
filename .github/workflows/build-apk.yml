@@ -1,4 +1,4 @@
-name: Build Android APK Final Debug
+name: Build Android APK Auto-Find
 
 on:
   push:
@@ -24,31 +24,28 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gradle
 
-      - name: Find and Build Android Project
+      - name: Find Project and Build
         run: |
-          echo "=== [디버그] 현재 저장소 전체 파일 구조 ==="
-          find . -maxdepth 3 -not -path '*/.*'
-          
-          echo "=== settings.gradle 파일 찾는 중 ==="
+          echo "=== 안드로이드 프로젝트 폴더 자동 탐색 ==="
           SETTING_FILE=$(find . -name "settings.gradle" -o -name "settings.gradle.kts" -print -quit)
           
           if [ -z "$SETTING_FILE" ]; then
-            echo "::warning::settings.gradle을 찾지 못했습니다. 최상위 폴더에서 빌드를 시도합니다."
-            PROJECT_DIR="."
-          else
-            PROJECT_DIR=$(dirname "$SETTING_FILE")
-            echo "프로젝트 폴더 위치: $PROJECT_DIR"
+            echo "::error::settings.gradle을 찾을 수 없습니다."
+            exit 1
           fi
+          
+          PROJECT_DIR=$(dirname "$SETTING_FILE")
+          echo "찾은 프로젝트 폴더: $PROJECT_DIR"
           
           cd "$PROJECT_DIR"
           
           if [ ! -f "./gradlew" ]; then
-            echo "=== gradlew가 없어 Gradle Wrapper를 자동 생성합니다 ==="
+            echo "=== gradlew 생성 중 ==="
             gradle wrapper
           fi
           
           chmod +x gradlew
-          echo "=== Gradle 빌드 시작 (assembleDebug) ==="
+          echo "=== 빌드 실행 ==="
           ./gradlew assembleDebug
 
       - name: Upload APK Artifact
