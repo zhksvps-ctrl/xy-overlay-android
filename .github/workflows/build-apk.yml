@@ -1,4 +1,4 @@
-name: Build APK with Auto-Wrapper
+name: Build Android APK Final
 
 on:
   push:
@@ -19,20 +19,33 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Generate Wrapper and Build APK
+      - name: Install System Gradle (For Wrapper Generation)
         run: |
-          echo "=== Checking current files ==="
-          find . -maxdepth 2 -not -path '*/.*'
+          sudo apt-get update
+          sudo apt-get install -y gradle
+
+      - name: Locate Project and Build APK
+        run: |
+          echo "=== Searching for settings.gradle ==="
+          SETTING_FILE=$(find . -name "settings.gradle" -o -name "settings.gradle.kts" -print -quit)
           
-          # gradlew 파일이 없다면 시스템의 gradle을 이용해 wrapper 자동 생성
+          if [ -z "$SETTING_FILE" ]; then
+            echo "::error::안드로이드 프로젝트 설정 파일(settings.gradle)을 찾을 수 없습니다. ZIP 내부 구조를 확인해주세요."
+            exit 1
+          fi
+          
+          PROJECT_DIR=$(dirname "$SETTING_FILE")
+          echo "Found project root at: $PROJECT_DIR"
+          
+          cd "$PROJECT_DIR"
+          
           if [ ! -f "./gradlew" ]; then
-            echo "=== gradlew not found. Generating gradle wrapper automatically ==="
+            echo "=== gradlew not found. Generating wrapper via system gradle ==="
             gradle wrapper
           fi
           
-          # 실행 권한 부여 및 빌드 실행
           chmod +x gradlew
-          echo "=== Starting Gradle Build ==="
+          echo "=== Starting Gradle Build (assembleDebug) ==="
           ./gradlew assembleDebug
 
       - name: Upload APK Artifact
