@@ -1,4 +1,4 @@
-name: Build Android APK Auto-Find
+name: Build Android APK Final
 
 on:
   push:
@@ -19,23 +19,20 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install System Gradle
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gradle
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Find Project and Build
+      - name: Find Project and Build APK
         run: |
           echo "=== 안드로이드 프로젝트 폴더 자동 탐색 ==="
           SETTING_FILE=$(find . -name "settings.gradle" -o -name "settings.gradle.kts" -print -quit)
           
           if [ -z "$SETTING_FILE" ]; then
-            echo "::error::settings.gradle을 찾을 수 없습니다."
-            exit 1
+            PROJECT_DIR="."
+          else
+            PROJECT_DIR=$(dirname "$SETTING_FILE")
+            echo "프로젝트 폴더 위치: $PROJECT_DIR"
           fi
-          
-          PROJECT_DIR=$(dirname "$SETTING_FILE")
-          echo "찾은 프로젝트 폴더: $PROJECT_DIR"
           
           cd "$PROJECT_DIR"
           
@@ -45,7 +42,7 @@ jobs:
           fi
           
           chmod +x gradlew
-          echo "=== 빌드 실행 ==="
+          echo "=== 안드로이드 APK 빌드 시작 ==="
           ./gradlew assembleDebug
 
       - name: Upload APK Artifact
