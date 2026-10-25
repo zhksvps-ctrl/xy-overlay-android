@@ -1,4 +1,3 @@
-
       - name: Inspect Android project ZIP
         run: |
           mkdir -p extracted
