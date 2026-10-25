@@ -1,61 +1,42 @@
-      - name: Inspect Android project ZIP run: |
-          mkdir -p extracted
-          unzip -q xy_overlay_android_phone_cloudbuild_v2.zip -d extracted
-          echo "===== ZIP FILE LIST ====="
-          find extracted -maxdepth 6 -type f | head -300
-          echo "===== GRADLE FILES ====="
-          find extracted -type f \( \
-            -name gradlew -o \
-            -name settings.gradle -o \
-            -name settings.gradle.kts -o \
-            -name build.gradle -o \
-            -name build.gradle.kts \
-          \)name: Android APK Build
+name: Build APK with Auto-Wrapper
 
 on:
-  workflow_dispatch:
   push:
-    paths:
-      - 'xy_overlay_android_phone_cloudbuild_v2.zip'
-      - '.github/workflows/build-apk.yml'
-
-permissions:
-  contents: read
+    branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: 'temurin'
           java-version: '17'
 
-      - name: Extract Android project
+      - name: Generate Wrapper and Build APK
         run: |
-          mkdir -p extracted
-          unzip -q xy_overlay_android_phone_cloudbuild_v2.zip -d extracted
-          find extracted -maxdepth 4 -type f | head -200
-
-      - name: Build debug APK
-        run: |
-          GRADLEW="$(find extracted -type f -name gradlew | head -n 1)"
-          if [ -z "$GRADLEW" ]; then
-            echo "ERROR: gradlew not found in ZIP."
-            exit 1
+          echo "=== Checking current files ==="
+          find . -maxdepth 2 -not -path '*/.*'
+          
+          # gradlew 파일이 없다면 시스템의 gradle을 이용해 wrapper 자동 생성
+          if [ ! -f "./gradlew" ]; then
+            echo "=== gradlew not found. Generating gradle wrapper automatically ==="
+            gradle wrapper
           fi
-          cd "$(dirname "$GRADLEW")"
+          
+          # 실행 권한 부여 및 빌드 실행
           chmod +x gradlew
+          echo "=== Starting Gradle Build ==="
           ./gradlew assembleDebug
 
-      - name: Upload APK
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-debug-apk
-          path: extracted/**/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
-          retention-days: 7
+          path: '**/build/outputs/apk/debug/*.apk'
